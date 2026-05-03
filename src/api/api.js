@@ -30,9 +30,19 @@ export const getGpa = () =>
 export const postGrade = (enrollmentId, score) =>
   fetch(`${BASE}/grades`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeader().headers
-    },
+    headers: { "Content-Type": "application/json", ...authHeader().headers },
     body: JSON.stringify({ enrollmentId, score })
+  }).then(r => r.text());
+
+export const getOpenSemesters = () =>
+  fetch(`${BASE}/enrollments/semesters`, authHeader()).then(r => r.json());
+
+export const getAvailableCourses = () =>
+  fetch(`${BASE}/enrollments/available-courses`, authHeader()).then(r => r.json());
+
+export const enrollInCourse = (courseId, semesterId) =>
+  fetch(`${BASE}/enrollments/enroll`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeader().headers },
+    body: JSON.stringify({ courseId, semesterId })
   }).then(r => r.text());
