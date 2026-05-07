@@ -21,39 +21,39 @@ const StatCard = ({ label, value, color, icon }) => (
 );
 
 export default function StudentDashboard({ user }) {
-  const [courses, setCourses] = useState([]);
-  const [grades, setGrades] = useState([]);
-  const [gpa, setGpa] = useState(null);
-  const [tab, setTab] = useState("courses");
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-
-  // Enrollment
-  const [openSemesters, setOpenSemesters] = useState([]);
+  const [courses,          setCourses]          = useState([]);
+  const [grades,           setGrades]           = useState([]);
+  const [gpa,              setGpa]              = useState(null);
+  const [tab,              setTab]              = useState("courses");
+  const [loading,          setLoading]          = useState(true);
+  const [search,           setSearch]           = useState("");
+  const [openSemesters,    setOpenSemesters]    = useState([]);
   const [availableCourses, setAvailableCourses] = useState([]);
   const [selectedSemester, setSelectedSemester] = useState("");
-  const [selectedCourse, setSelectedCourse] = useState("");
-  const [enrollMsg, setEnrollMsg] = useState("");
+  const [selectedCourse,   setSelectedCourse]   = useState("");
+  const [enrollMsg,        setEnrollMsg]        = useState("");
 
   useEffect(() => {
+    // user.id passed to all calls — no token needed
     Promise.all([
-      getCourses().then(setCourses),
-      getMyGrades().then(setGrades),
-      getGpa().then(d => setGpa(d.gpa)),
+      getCourses(user.id, user.role).then(setCourses),
+      getMyGrades(user.id).then(setGrades),
+      getGpa(user.id).then(d => setGpa(d.gpa)),
       getOpenSemesters().then(setOpenSemesters),
-      getAvailableCourses().then(setAvailableCourses)
+      getAvailableCourses(user.id).then(setAvailableCourses)
     ]).finally(() => setLoading(false));
-  }, []);
+  }, [user.id, user.role]);
 
   const handleEnroll = async (e) => {
     e.preventDefault();
     if (!selectedCourse || !selectedSemester) return;
-    const msg = await enrollInCourse(parseInt(selectedCourse), parseInt(selectedSemester));
+    // studentId included in the request body
+    const msg = await enrollInCourse(user.id, parseInt(selectedCourse), parseInt(selectedSemester));
     setEnrollMsg(msg);
     // Refresh data
-    getCourses().then(setCourses);
-    getAvailableCourses().then(setAvailableCourses);
-    getMyGrades().then(setGrades);
+    getCourses(user.id, user.role).then(setCourses);
+    getAvailableCourses(user.id).then(setAvailableCourses);
+    getMyGrades(user.id).then(setGrades);
     setSelectedCourse("");
     setSelectedSemester("");
   };
@@ -88,8 +88,8 @@ export default function StudentDashboard({ user }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px", marginBottom: "32px" }}>
         <StatCard label="Enrolled Courses" value={courses.length} color="#1a3c5e" icon="📚" />
-        <StatCard label="Grades Received" value={grades.filter(g => g.score !== null).length} color="#2563a8" icon="📝" />
-        <StatCard label="Current GPA" value={gpa > 0 ? gpa.toFixed(2) : "N/A"}
+        <StatCard label="Grades Received"  value={grades.filter(g => g.score !== null).length} color="#2563a8" icon="📝" />
+        <StatCard label="Current GPA"      value={gpa > 0 ? gpa.toFixed(2) : "N/A"}
           color={gpa >= 3 ? "#16a34a" : gpa >= 2 ? "#d97706" : "#dc2626"} icon="🎓" />
       </div>
 
@@ -97,8 +97,8 @@ export default function StudentDashboard({ user }) {
         <div style={{ display: "flex", borderBottom: "2px solid var(--border)" }}>
           {[
             { key: "courses", label: "📚 My Courses" },
-            { key: "enroll", label: "➕ Enroll" },
-            { key: "grades", label: "📊 Grades & GPA" }
+            { key: "enroll",  label: "➕ Enroll" },
+            { key: "grades",  label: "📊 Grades & GPA" }
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               padding: "16px 28px", fontSize: "14px", fontWeight: "500",
@@ -200,51 +200,25 @@ export default function StudentDashboard({ user }) {
               ) : (
                 <form onSubmit={handleEnroll}>
                   <div style={{ marginBottom: "16px" }}>
-                    <label style={{ display: "block", fontSize: "13px", fontWeight: "500", marginBottom: "6px" }}>
-                      Select Semester
-                    </label>
-                    <select
-                      value={selectedSemester}
-                      onChange={e => setSelectedSemester(e.target.value)}
-                      required
-                      style={{
-                        width: "100%", padding: "12px 16px",
-                        border: "2px solid var(--border)", borderRadius: "10px",
-                        fontSize: "15px", outline: "none", boxSizing: "border-box"
-                      }}>
+                    <label style={{ display: "block", fontSize: "13px", fontWeight: "500", marginBottom: "6px" }}>Select Semester</label>
+                    <select value={selectedSemester} onChange={e => setSelectedSemester(e.target.value)} required
+                      style={{ width: "100%", padding: "12px 16px", border: "2px solid var(--border)", borderRadius: "10px", fontSize: "15px", outline: "none", boxSizing: "border-box" }}>
                       <option value="">-- Choose a semester --</option>
-                      {openSemesters.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
+                      {openSemesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
-
                   <div style={{ marginBottom: "24px" }}>
-                    <label style={{ display: "block", fontSize: "13px", fontWeight: "500", marginBottom: "6px" }}>
-                      Select Course
-                    </label>
-                    <select
-                      value={selectedCourse}
-                      onChange={e => setSelectedCourse(e.target.value)}
-                      required
-                      style={{
-                        width: "100%", padding: "12px 16px",
-                        border: "2px solid var(--border)", borderRadius: "10px",
-                        fontSize: "15px", outline: "none", boxSizing: "border-box"
-                      }}>
+                    <label style={{ display: "block", fontSize: "13px", fontWeight: "500", marginBottom: "6px" }}>Select Course</label>
+                    <select value={selectedCourse} onChange={e => setSelectedCourse(e.target.value)} required
+                      style={{ width: "100%", padding: "12px 16px", border: "2px solid var(--border)", borderRadius: "10px", fontSize: "15px", outline: "none", boxSizing: "border-box" }}>
                       <option value="">-- Choose a course --</option>
-                      {availableCourses.map(c => (
-                        <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
-                      ))}
+                      {availableCourses.map(c => <option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}
                     </select>
                   </div>
-
                   <button type="submit" style={{
                     width: "100%", padding: "13px", background: "var(--primary)",
                     color: "white", borderRadius: "10px", fontSize: "15px", fontWeight: "500"
-                  }}>
-                    Enroll Now
-                  </button>
+                  }}>Enroll Now</button>
                 </form>
               )}
             </div>

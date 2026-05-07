@@ -1,63 +1,49 @@
 import { useEffect, useState } from "react";
-
-const BASE = "http://localhost:5238/api";
-const authHeader = () => ({
-  headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-});
+import { getCourses, getEnrollments, postGrade, createMyCourse } from "../api/api";
 
 export default function TeacherDashboard({ user }) {
-  const [courses, setCourses] = useState([]);
-  const [enrollments, setEnrollments] = useState([]);
-  const [selectedCourse, setSelectedCourse] = useState(null);
-  const [gradeInputs, setGradeInputs] = useState({});
-  const [msg, setMsg] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("courses");
+  const [courses,        setCourses]      = useState([]);
+  const [enrollments,    setEnrollments]  = useState([]);
+  const [selectedCourse, setSelected]     = useState(null);
+  const [gradeInputs,    setGradeInputs]  = useState({});
+  const [msg,            setMsg]          = useState("");
+  const [loading,        setLoading]      = useState(true);
+  const [tab,            setTab]          = useState("courses");
 
   // Add course form
-  const [newName, setNewName] = useState("");
-  const [newCode, setNewCode] = useState("");
+  const [newName,    setNewName]    = useState("");
+  const [newCode,    setNewCode]    = useState("");
   const [newCredits, setNewCredits] = useState(3);
-  const [addMsg, setAddMsg] = useState("");
+  const [addMsg,     setAddMsg]     = useState("");
 
   useEffect(() => { loadCourses(); }, []);
 
   const loadCourses = async () => {
-    const res = await fetch(`${BASE}/courses`, authHeader());
-    const data = await res.json();
-    setCourses(data);
+    // user.id and user.role passed so backend returns only this teacher's courses
+    const data = await getCourses(user.id, user.role);
+    setCourses(Array.isArray(data) ? data : []);
     setLoading(false);
   };
 
   const loadEnrollments = async (courseId) => {
-    setSelectedCourse(courseId);
+    setSelected(courseId);
     setMsg("");
-    const res = await fetch(`${BASE}/grades/enrollments/${courseId}`, authHeader());
-    const data = await res.json();
-    setEnrollments(data);
+    const data = await getEnrollments(courseId);
+    setEnrollments(Array.isArray(data) ? data : []);
   };
 
-  const postGrade = async (enrollmentId) => {
+  const handlePostGrade = async (enrollmentId) => {
     const score = gradeInputs[enrollmentId];
     if (!score) return;
-    const res = await fetch(`${BASE}/grades`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeader().headers },
-      body: JSON.stringify({ enrollmentId, score: parseFloat(score) })
-    });
-    const text = await res.text();
+    const text = await postGrade(enrollmentId, parseFloat(score));
     setMsg(text);
     loadEnrollments(selectedCourse);
   };
 
-  const addCourse = async (e) => {
+  const handleAddCourse = async (e) => {
     e.preventDefault();
-    const res = await fetch(`${BASE}/courses/my-course`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeader().headers },
-      body: JSON.stringify({ name: newName, code: newCode, credits: newCredits })
-    });
-    const text = await res.text();
+    // user.id passed as teacherId — no JWT needed
+    const text = await createMyCourse(newName, newCode, newCredits, user.id);
     setAddMsg(text);
     setNewName(""); setNewCode(""); setNewCredits(3);
     loadCourses();
@@ -86,7 +72,7 @@ export default function TeacherDashboard({ user }) {
         <div style={{ display: "flex", borderBottom: "2px solid var(--border)" }}>
           {[
             { key: "courses", label: "📚 My Courses" },
-            { key: "add", label: "➕ Add Course" }
+            { key: "add",     label: "➕ Add Course" }
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               padding: "16px 28px", fontSize: "14px", fontWeight: "500",
@@ -115,7 +101,7 @@ export default function TeacherDashboard({ user }) {
                 }}>{addMsg}</div>
               )}
 
-              <form onSubmit={addCourse}>
+              <form onSubmit={handleAddCourse}>
                 {[
                   { label: "Course Name", value: newName, setter: setNewName, placeholder: "e.g. Data Structures" },
                   { label: "Course Code", value: newCode, setter: setNewCode, placeholder: "e.g. I2201" },
@@ -138,26 +124,16 @@ export default function TeacherDashboard({ user }) {
 
                 <div style={{ marginBottom: "24px" }}>
                   <label style={{ display: "block", fontSize: "13px", fontWeight: "500", marginBottom: "6px" }}>Credits</label>
-                  <select
-                    value={newCredits}
-                    onChange={e => setNewCredits(parseInt(e.target.value))}
-                    style={{
-                      width: "100%", padding: "12px 16px",
-                      border: "2px solid var(--border)", borderRadius: "10px",
-                      fontSize: "15px", outline: "none", boxSizing: "border-box"
-                    }}>
-                    {[1, 2, 3, 4, 5].map(n => (
-                      <option key={n} value={n}>{n} Credits</option>
-                    ))}
+                  <select value={newCredits} onChange={e => setNewCredits(parseInt(e.target.value))}
+                    style={{ width: "100%", padding: "12px 16px", border: "2px solid var(--border)", borderRadius: "10px", fontSize: "15px", outline: "none", boxSizing: "border-box" }}>
+                    {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} Credits</option>)}
                   </select>
                 </div>
 
                 <button type="submit" style={{
                   width: "100%", padding: "13px", background: "var(--primary)",
                   color: "white", borderRadius: "10px", fontSize: "15px", fontWeight: "500"
-                }}>
-                  Add Course
-                </button>
+                }}>Add Course</button>
               </form>
             </div>
           )}
@@ -179,8 +155,7 @@ export default function TeacherDashboard({ user }) {
                     <div style={{ display: "grid", gap: "8px" }}>
                       {courses.map(c => (
                         <button key={c.id} onClick={() => loadEnrollments(c.id)} style={{
-                          padding: "12px 16px", borderRadius: "10px",
-                          textAlign: "left", fontSize: "14px",
+                          padding: "12px 16px", borderRadius: "10px", textAlign: "left", fontSize: "14px",
                           background: selectedCourse === c.id ? "var(--primary)" : "var(--surface2)",
                           color: selectedCourse === c.id ? "white" : "var(--text)",
                           border: `1px solid ${selectedCourse === c.id ? "var(--primary)" : "var(--border)"}`,
@@ -221,8 +196,7 @@ export default function TeacherDashboard({ user }) {
                         <div style={{ display: "grid", gap: "12px" }}>
                           {enrollments.map(e => (
                             <div key={e.enrollmentId} style={{
-                              display: "flex", alignItems: "center",
-                              justifyContent: "space-between",
+                              display: "flex", alignItems: "center", justifyContent: "space-between",
                               padding: "16px 20px", background: "white",
                               borderRadius: "10px", border: "1px solid var(--border)"
                             }}>
@@ -250,12 +224,10 @@ export default function TeacherDashboard({ user }) {
                                     fontSize: "14px", outline: "none"
                                   }}
                                 />
-                                <button onClick={() => postGrade(e.enrollmentId)} style={{
+                                <button onClick={() => handlePostGrade(e.enrollmentId)} style={{
                                   padding: "8px 16px", background: "var(--primary)",
                                   color: "white", borderRadius: "8px", fontSize: "14px", fontWeight: "500"
-                                }}>
-                                  Post Grade
-                                </button>
+                                }}>Post Grade</button>
                               </div>
                             </div>
                           ))}

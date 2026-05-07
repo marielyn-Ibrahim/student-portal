@@ -1,24 +1,32 @@
 import { useState } from "react";
 import { login } from "../api/api";
 
-export default function Login({ onLogin, onSwitch }) {
-  const [email, setEmail] = useState("");
+export default function Login({ onLogin }) {
+  const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [error,    setError]    = useState("");
+  const [loading,  setLoading]  = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     try {
-      const data = await login(email, password);
-      if (data.token) {
+      const res = await fetch("http://localhost:5238/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
         onLogin(data);
       } else {
+        // 401 or any error from backend — wrong email or password
         setError("Invalid email or password.");
       }
     } catch {
+      // Only shows if backend is truly unreachable
       setError("Cannot connect to server. Make sure the backend is running.");
     }
     setLoading(false);
@@ -107,23 +115,11 @@ export default function Login({ onLogin, onSwitch }) {
           fontSize: "15px", fontWeight: "500",
           letterSpacing: "0.3px"
         }}
-        onMouseOver={e => { if(!loading) e.target.style.background = "var(--primary-light)" }}
-        onMouseOut={e => { if(!loading) e.target.style.background = "var(--primary)" }}>
+        onMouseOver={e => { if (!loading) e.target.style.background = "var(--primary-light)"; }}
+        onMouseOut={e => { if (!loading) e.target.style.background = "var(--primary)"; }}>
           {loading ? "Signing in..." : "Sign In"}
         </button>
       </form>
-
-      <p style={{
-        textAlign: "center", marginTop: "24px",
-        fontSize: "14px", color: "var(--text-muted)"
-      }}>
-        Don't have an account?{" "}
-        <button onClick={onSwitch} style={{
-          background: "none", color: "var(--primary-light)",
-          fontWeight: "600", fontSize: "14px",
-          textDecoration: "underline"
-        }}>Register here</button>
-      </p>
     </div>
   );
 }

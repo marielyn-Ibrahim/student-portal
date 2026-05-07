@@ -1,24 +1,23 @@
 import { useState, useEffect } from "react";
 import './App.css';
 import Login from "./pages/Login";
-import Register from "./pages/Register";
 import StudentDashboard from "./pages/StudentDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 
 export default function App() {
-  const [page, setPage] = useState("login");
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const id   = localStorage.getItem("id");
     const role = localStorage.getItem("role");
     const name = localStorage.getItem("name");
-    if (token) setUser({ token, role, name });
+    if (role) setUser({ id: parseInt(id), role, name });
   }, []);
 
   const handleLogin = (data) => {
-    localStorage.setItem("token", data.token);
+    // Store user info in localStorage so refresh doesn't log out
+    localStorage.setItem("id",   data.id);
     localStorage.setItem("role", data.role);
     localStorage.setItem("name", data.name);
     setUser(data);
@@ -27,12 +26,13 @@ export default function App() {
   const handleLogout = () => {
     localStorage.clear();
     setUser(null);
-    setPage("login");
   };
 
+  // ── Logged in — show dashboard based on role ─────────────────────────────
   if (user) {
     return (
       <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+
         {/* Top Navigation Bar */}
         <nav style={{
           background: "var(--primary)",
@@ -79,28 +79,35 @@ export default function App() {
                 borderRadius: "10px", fontWeight: "500"
               }}>{user.role}</span>
             </div>
-            <button onClick={handleLogout} style={{
-              background: "rgba(255,255,255,0.15)",
-              color: "white", padding: "8px 16px",
-              borderRadius: "8px", fontSize: "14px",
-              border: "1px solid rgba(255,255,255,0.2)"
-            }}
-            onMouseOver={e => e.target.style.background = "rgba(255,255,255,0.25)"}
-            onMouseOut={e => e.target.style.background = "rgba(255,255,255,0.15)"}>
+
+            <button
+              onClick={handleLogout}
+              style={{
+                background: "rgba(255,255,255,0.15)",
+                color: "white", padding: "8px 16px",
+                borderRadius: "8px", fontSize: "14px",
+                border: "1px solid rgba(255,255,255,0.2)"
+              }}
+              onMouseOver={e => e.target.style.background = "rgba(255,255,255,0.25)"}
+              onMouseOut={e =>  e.target.style.background = "rgba(255,255,255,0.15)"}
+            >
               Logout
             </button>
           </div>
         </nav>
 
+        {/* Dashboard content */}
         <div style={{ padding: "32px", maxWidth: "1100px", margin: "0 auto" }}>
           {user.role === "Student" && <StudentDashboard user={user} />}
-{user.role === "Teacher" && <TeacherDashboard user={user} />}
-{user.role === "Admin" && <AdminDashboard user={user} />}
+          {user.role === "Teacher" && <TeacherDashboard user={user} />}
+          {user.role === "Admin"   && <AdminDashboard   user={user} />}
         </div>
+
       </div>
     );
   }
 
+  // ── Not logged in — show Login ────────────────────────────────────────────
   return (
     <div style={{
       minHeight: "100vh",
@@ -108,9 +115,7 @@ export default function App() {
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: "20px"
     }}>
-      {page === "login"
-        ? <Login onLogin={handleLogin} onSwitch={() => setPage("register")} />
-        : <Register onSwitch={() => setPage("login")} />}
+      <Login onLogin={handleLogin} />
     </div>
   );
 }
